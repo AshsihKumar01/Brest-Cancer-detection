@@ -1,7 +1,9 @@
-joblib
-pandas
-scikit-learn
-seaborn
-numpy
-matplotlib
 streamlit
+numpy
+tensorflow
+scikit-learn
+joblib
+p
+pandas
+langchain
+langchain_huggingface
