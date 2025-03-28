@@ -3,6 +3,7 @@ import numpy as np
 import tensorflow as tf
 import joblib
 import pandas as pd
+import requests
 from sklearn.preprocessing import StandardScaler
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain import PromptTemplate, LLMChain
@@ -27,12 +28,20 @@ except:
     scaler.fit(X_train)
     joblib.dump(scaler, "scaler.pkl")
 
-# 🔐 Securely Load Hugging Face API Key
-sec_key = st.secrets["huggingface"]["api_key"]
+# 🔐 Securely Load Hugging Face API Key from Streamlit Secrets
+try:
+    sec_key = st.secrets["huggingface"]["api_key"]
+except:
+    st.error("⚠ API Key not found! Add it in `.streamlit/secrets.toml`")
+    sec_key = None
+
 repo_id = "mistralai/Mistral-7B-Instruct-v0.3"
 
-# 🔗 Initialize AI Model
-llm = HuggingFaceEndpoint(repo_id=repo_id, max_length=128, temperature=0.7, token=sec_key)
+# 🎯 Function to check API key validity
+def check_api_key(api_key):
+    headers = {"Authorization": f"Bearer {api_key}"}
+    response = requests.get("https://huggingface.co/api/whoami-v2", headers=headers)
+    return response.status_code == 200
 
 # 🏥 **App Title**
 st.title("🔬 Breast Cancer Detection Assistant")
@@ -86,12 +95,16 @@ user_question = st.text_input("Type your question here:")
 
 if st.button("Ask AI", type="primary") and user_question:
     try:
-        template = """Question: {question}\n\nAnswer: Let's think step by step."""
-        prompt = PromptTemplate(template=template, input_variables=["question"])
-        llm_chain = LLMChain(llm=llm, prompt=prompt)
-        response = llm_chain.invoke(user_question)
+        if sec_key and check_api_key(sec_key):  # Verify API key
+            llm = HuggingFaceEndpoint(repo_id=repo_id, max_length=128, temperature=0.7, token=sec_key)
+            template = """Question: {question}\n\nAnswer: Let's think step by step."""
+            prompt = PromptTemplate(template=template, input_variables=["question"])
+            llm_chain = LLMChain(llm=llm, prompt=prompt)
+            response = llm_chain.invoke(user_question)
 
-        st.write("### 🤖 AI Response:")
-        st.write(response)
+            st.write("### 🤖 AI Response:")
+            st.write(response)
+        else:
+            st.error("⚠ Invalid or Expired API Key! Check your Hugging Face Token.")
     except Exception as e:
         st.error(f"Error: {str(e)}")
